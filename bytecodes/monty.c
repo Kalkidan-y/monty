@@ -17,6 +17,7 @@ void initializeInterpreter(MontyInterpreter *interpreter) {
 }
 
 void push(MontyInterpreter *interpreter, int value) {
+    /* Unused variable 'i' removed */
     if (interpreter->stack_size >= interpreter->stack_capacity) {
         interpreter->stack_capacity = (interpreter->stack_capacity == 0) ? 1 : interpreter->stack_capacity * 2;
         interpreter->stack = realloc(interpreter->stack, interpreter->stack_capacity * sizeof(int));
@@ -25,20 +26,23 @@ void push(MontyInterpreter *interpreter, int value) {
             exit(EXIT_FAILURE);
         }
     }
+
     interpreter->stack[interpreter->stack_size++] = value;
 }
 
 void pall(MontyInterpreter *interpreter) {
-    for (size_t i = 0; i < interpreter->stack_size; ++i) {
+    size_t i;  /* Declare i before the loop */
+
+    for (i = 0; i < interpreter->stack_size; ++i) {
         printf("%d\n", interpreter->stack[i]);
     }
 }
 
 void processLine(MontyInterpreter *interpreter, const char *line, size_t line_number) {
-    char *token = strtok((char *)line, " \t\n");  // Tokenize the line
+    char *token = strtok((char *)line, " \t\n");  /* Tokenize the line */
 
     if (!token) {
-        return;  // Ignore empty lines
+        return;  /* Ignore empty lines */
     }
 
     if (strcmp(token, "push") == 0) {
@@ -47,26 +51,26 @@ void processLine(MontyInterpreter *interpreter, const char *line, size_t line_nu
             int value = atoi(token);
             push(interpreter, value);
         } else {
-            fprintf(stderr, "Error at line %zu: missing argument for push\n", line_number);
+            fprintf(stderr, "Error at line %lu: missing argument for push\n", (unsigned long)line_number);
             exit(EXIT_FAILURE);
         }
     } else if (strcmp(token, "pall") == 0) {
         pall(interpreter);
     } else {
-        fprintf(stderr, "Error at line %zu: unknown instruction %s\n", line_number, token);
+        fprintf(stderr, "Error at line %lu: unknown instruction %s\n", (unsigned long)line_number, token);
         exit(EXIT_FAILURE);
     }
 }
 
 void executeFile(MontyInterpreter *interpreter, const char *filename) {
+    size_t line_number = 0;  /* Declare line_number as size_t */
+    char buffer[MAX_LINE_LENGTH];  /* Declare buffer at the beginning */
+
     FILE *file = fopen(filename, "r");
     if (!file) {
         fprintf(stderr, "Error: Can't open file %s\n", filename);
         exit(EXIT_FAILURE);
     }
-
-    char buffer[MAX_LINE_LENGTH];
-    size_t line_number = 0;
 
     while (fgets(buffer, sizeof(buffer), file) != NULL) {
         line_number++;
@@ -77,19 +81,22 @@ void executeFile(MontyInterpreter *interpreter, const char *filename) {
 }
 
 int main(int argc, char *argv[]) {
+    MontyInterpreter interpreter;  /* Declare interpreter at the beginning */
+    const char *filename;
+
     if (argc != 2) {
-        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <filename> (Monty bytecode file)\n", argv[0]);
         return EXIT_FAILURE;
     }
 
-    const char *filename = argv[1];
+    filename = argv[1];
 
-    MontyInterpreter interpreter;
     initializeInterpreter(&interpreter);
 
     executeFile(&interpreter, filename);
 
-    free(interpreter.stack);  // Cleanup allocated memory
+    free(interpreter.stack);
+    interpreter.stack = NULL;  /* Set to NULL after freeing memory */
 
     return EXIT_SUCCESS;
 }
