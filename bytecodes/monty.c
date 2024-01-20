@@ -1,89 +1,96 @@
-#include "monty.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-int is_number(const char *str);
+#define MAX_LINE_LENGTH 100
 
-/**
- * push - Pushes an element onto the stack.
- * @stack: Pointer to the head of the stack.
- * @line_number: Line number in the file.
- */
-void push(stack_t **stack, unsigned int line_number)
-{
-    char buffer[1024]; // Adjust the size as needed
-    char *arg = NULL;
-    int value;
+typedef struct {
+    int *stack;
+    size_t stack_size;
+    size_t stack_capacity;
+} MontyInterpreter;
 
-    if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
-        fprintf(stderr, "L%u: Error reading input\n", line_number);
-        exit(EXIT_FAILURE);
-    }
-
-    arg = strtok(buffer, " \t\n");
-
-    if (arg == NULL || !is_number(arg))
-    {
-        fprintf(stderr, "L%u: usage: push integer\n", line_number);
-        exit(EXIT_FAILURE);
-    }
-
-    value = atoi(arg);
-
-    /* Create a new stack node */
-    stack_t *new_node = malloc(sizeof(stack_t));
-    if (new_node == NULL)
-    {
-        fprintf(stderr, "Error: malloc failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    new_node->n = value;
-    new_node->prev = NULL;
-    new_node->next = *stack;
-
-    if (*stack != NULL)
-        (*stack)->prev = new_node;
-
-    *stack = new_node;
+void initializeInterpreter(MontyInterpreter *interpreter) {
+    interpreter->stack = NULL;
+    interpreter->stack_size = 0;
+    interpreter->stack_capacity = 0;
 }
 
-/**
- * pall - Prints all values on the stack.
- * @stack: Pointer to the head of the stack.
- * @line_number: Line number in the file.
- */
-void pall(stack_t **stack, unsigned int line_number)
-{
-    (void)line_number; /* Unused parameter */
+void push(MontyInterpreter *interpreter, int value) {
+    if (interpreter->stack_size >= interpreter->stack_capacity) {
+        interpreter->stack_capacity = (interpreter->stack_capacity == 0) ? 1 : interpreter->stack_capacity * 2;
+        interpreter->stack = realloc(interpreter->stack, interpreter->stack_capacity * sizeof(int));
+        if (!interpreter->stack) {
+            fprintf(stderr, "Error: malloc failed\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    interpreter->stack[interpreter->stack_size++] = value;
+}
 
-    stack_t *current = *stack;
-
-    while (current != NULL)
-    {
-        printf("%d\n", current->n);
-        current = current->next;
+void pall(MontyInterpreter *interpreter) {
+    for (size_t i = 0; i < interpreter->stack_size; ++i) {
+        printf("%d\n", interpreter->stack[i]);
     }
 }
 
-/**
- * is_number - Checks if a string represents a number.
- * @str: String to check.
- * Return: 1 if it's a number, 0 otherwise.
- */
-int is_number(const char *str)
-{
-    if (str == NULL || *str == '\0')
-        return 0;
+void processLine(MontyInterpreter *interpreter, const char *line, size_t line_number) {
+    char *token = strtok((char *)line, " \t\n");  // Tokenize the line
 
-    for (size_t i = 0; str[i] != '\0'; i++)
-    {
-        if (!isdigit(str[i]) && (i == 0 && str[i] != '-'))
-            return 0;
+    if (!token) {
+        return;  // Ignore empty lines
     }
 
-    return 1;
+    if (strcmp(token, "push") == 0) {
+        token = strtok(NULL, " \t\n");
+        if (token) {
+            int value = atoi(token);
+            push(interpreter, value);
+        } else {
+            fprintf(stderr, "Error at line %zu: missing argument for push\n", line_number);
+            exit(EXIT_FAILURE);
+        }
+    } else if (strcmp(token, "pall") == 0) {
+        pall(interpreter);
+    } else {
+        fprintf(stderr, "Error at line %zu: unknown instruction %s\n", line_number, token);
+        exit(EXIT_FAILURE);
+    }
 }
 
-/* Additional functions and implementation go here */
+void executeFile(MontyInterpreter *interpreter, const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        fprintf(stderr, "Error: Can't open file %s\n", filename);
+        exit(EXIT_FAILURE);
+    }
+
+    char buffer[MAX_LINE_LENGTH];
+    size_t line_number = 0;
+
+    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+        line_number++;
+        processLine(interpreter, buffer, line_number);
+    }
+
+    fclose(file);
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    const char *filename = argv[1];
+
+    MontyInterpreter interpreter;
+    initializeInterpreter(&interpreter);
+
+    executeFile(&interpreter, filename);
+
+    free(interpreter.stack);  // Cleanup allocated memory
+
+    return EXIT_SUCCESS;
+}
 
